@@ -1,0 +1,21 @@
+# Build outputs
+*.exe
+!engine/stockfish/*.exe
+*.dll
+*.pdb
+*.lib
+*.obj
+*.exp
+build/
+dist/
+work/
+
+# Stockfish binary (99 MB) - download from the official release
+engine/stockfish/stockfish-windows-x86-64-universal.exe
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+report.json
