@@ -1,7 +1,9 @@
 """Run: python -m unittest -v test_chesslens.py"""
 import subprocess
 import os
+import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import chess
@@ -243,14 +245,26 @@ class MenuFlowTests(unittest.TestCase):
         cls.qt.setFont(QFont("Segoe UI", 9))
 
     def setUp(self):
-        from app import ChessLens
-        self.window = ChessLens(enable_hotkey=False)
+        import app
+        from PySide6.QtCore import QSettings
+        # Use a throwaway settings file so tests neither read nor overwrite the user's saved preferences.
+        self.settings_dir = tempfile.TemporaryDirectory()
+        ini = os.path.join(self.settings_dir.name, "settings.ini")
+        with mock.patch.object(app, "QSettings", lambda *args: QSettings(ini, QSettings.Format.IniFormat)):
+            self.window = app.ChessLens(enable_hotkey=False)
         self.window.timer.stop()
         # Check state transitions without showing or manipulating desktop overlays.
         self.window.show_overlay = lambda: None
 
     def tearDown(self):
         self.window.close()
+        self.window.settings.sync()
+        del self.window
+        self.settings_dir.cleanup()
+
+    def page_scroll_areas(self):
+        tabs = self.window.tab_widget
+        return [tabs.widget(index) for index in range(tabs.count())]
 
     def test_promotion_replaces_stale_advice_then_resumes_tracking(self):
         window = self.window
@@ -302,12 +316,14 @@ class MenuFlowTests(unittest.TestCase):
         window = self.window
         window.show()
         self.qt.processEvents()
-        self.assertEqual(window.centralWidget().horizontalScrollBar().maximum(), 0)
-        self.assertEqual(window.centralWidget().verticalScrollBar().maximum(), 0)
+        # Each tab page scrolls vertically on its own; none may need horizontal scrolling.
+        for scroll in self.page_scroll_areas():
+            self.assertEqual(scroll.horizontalScrollBar().maximum(), 0)
         window.advanced.show()
         window.resize(430, 880)
         self.qt.processEvents()
-        self.assertEqual(window.centralWidget().horizontalScrollBar().maximum(), 0)
+        for scroll in self.page_scroll_areas():
+            self.assertEqual(scroll.horizontalScrollBar().maximum(), 0)
 
 
 if __name__ == "__main__":
